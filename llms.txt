@@ -44,12 +44,12 @@ async def main():
 
 ### setup_config_listener
 
-Subscribe to Nacos config changes.
+Subscribe to Nacos config changes (async).
 
 ```python
 from nacos_toolkit import setup_config_listener
 
-setup_config_listener(
+await setup_config_listener(
     nacos_config={
         "server_addr": "nacos-server:8848",
         "namespace": "production",

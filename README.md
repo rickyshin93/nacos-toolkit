@@ -180,7 +180,7 @@ from nacos_toolkit import setup_config_listener
 def on_update(content: str):
     print(f"Config updated: {content}")
 
-setup_config_listener(
+await setup_config_listener(
     nacos_config={
         "server_addr": "nacos-server:8848",
         "namespace": "production",
@@ -253,7 +253,7 @@ uv run ruff check .
 | Function / Class | Description |
 |---|---|
 | `await get_nacos_config(...)` | Fetch and process config from Nacos |
-| `setup_config_listener(...)` | Listen for Nacos config changes |
+| `await setup_config_listener(...)` | Listen for Nacos config changes |
 | `get_local_config(...)` | Read local config files |
 | `NacosConfigUtils.process_configuration()` | Parse config + render templates |
 | `NacosConfigUtils.process_and_merge_custom_config()` | Process and merge custom config |

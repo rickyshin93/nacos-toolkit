@@ -1,6 +1,6 @@
 [project]
 name = "nacos-toolkit"
-version = "0.1.1"
+version = "1.0.0"
 description = "Nacos configuration parsing and management tool"
 readme = "README.md"
 license = "MIT"
@@ -19,7 +19,7 @@ classifiers = [
 ]
 dependencies = [
     "pyyaml>=6.0",
-    "nacos-sdk-python>=1.0.0",
+    "nacos-sdk-python>=3.2.0",
     "loguru>=0.7.0",
 ]
 

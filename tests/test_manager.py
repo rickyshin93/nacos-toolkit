@@ -34,10 +34,10 @@ class TestGetNacosConfig:
         env_yaml = yaml.dump({"env": "dev1"})
         app_yaml = yaml.dump({"host": "${db_host}", "port": 8080})
 
-        mock_client = MagicMock()
-        mock_client.get_config = AsyncMock(side_effect=[common_yaml, env_yaml, app_yaml])
+        mock_service = MagicMock()
+        mock_service.get_config = AsyncMock(side_effect=[common_yaml, env_yaml, app_yaml])
 
-        with patch("nacos_toolkit.manager.NacosConfigManager._create_client", return_value=mock_client):
+        with patch.object(NacosConfigManager, "_create_config_service", return_value=mock_service):
             result = await get_nacos_config(
                 connection={"server_addr": "localhost:8848", "namespace": "dev1", "username": "u", "password": "p"},
                 base_configs=[
@@ -55,10 +55,10 @@ class TestGetNacosConfig:
         common_yaml = yaml.dump({"key": "value"})
         app_yaml = yaml.dump({"name": "app"})
 
-        mock_client = MagicMock()
-        mock_client.get_config = AsyncMock(side_effect=[common_yaml, app_yaml])
+        mock_service = MagicMock()
+        mock_service.get_config = AsyncMock(side_effect=[common_yaml, app_yaml])
 
-        with patch("nacos_toolkit.manager.NacosConfigManager._create_client", return_value=mock_client):
+        with patch.object(NacosConfigManager, "_create_config_service", return_value=mock_service):
             result = await get_nacos_config(
                 connection={"server_addr": "localhost:8848", "namespace": "dev", "username": "u", "password": "p"},
                 base_configs=[
@@ -74,27 +74,27 @@ class TestGetNacosConfig:
     @pytest.mark.asyncio
     async def test_cached_config_returned_on_second_call(self):
         app_yaml = yaml.dump({"name": "app"})
-        mock_client = MagicMock()
-        mock_client.get_config = AsyncMock(return_value=app_yaml)
+        mock_service = MagicMock()
+        mock_service.get_config = AsyncMock(return_value=app_yaml)
 
-        with patch("nacos_toolkit.manager.NacosConfigManager._create_client", return_value=mock_client):
+        with patch.object(NacosConfigManager, "_create_config_service", return_value=mock_service):
             conn = {"server_addr": "localhost:8848", "namespace": "dev", "username": "u", "password": "p"}
             configs = [{"data_id": "app.yml", "group": "DEFAULT_GROUP"}]
             r1 = await get_nacos_config(connection=conn, base_configs=configs)
             r2 = await get_nacos_config(connection=conn, base_configs=configs)
 
         assert r1["config"] == r2["config"]
-        assert mock_client.get_config.await_count == 1
+        assert mock_service.get_config.await_count == 1
 
     @pytest.mark.asyncio
     async def test_override_config_merges(self):
         base_yaml = yaml.dump({"host": "localhost", "port": 3000})
         override_yaml = yaml.dump({"port": 9999, "extra": "yes"})
 
-        mock_client = MagicMock()
-        mock_client.get_config = AsyncMock(side_effect=[base_yaml, override_yaml])
+        mock_service = MagicMock()
+        mock_service.get_config = AsyncMock(side_effect=[base_yaml, override_yaml])
 
-        with patch("nacos_toolkit.manager.NacosConfigManager._create_client", return_value=mock_client):
+        with patch.object(NacosConfigManager, "_create_config_service", return_value=mock_service):
             result = await get_nacos_config(
                 connection={"server_addr": "localhost:8848", "namespace": "dev", "username": "u", "password": "p"},
                 base_configs=[{"data_id": "app.yml", "group": "DEFAULT_GROUP"}],
@@ -109,10 +109,10 @@ class TestGetNacosConfig:
     async def test_deploy_env_injected(self):
         app_yaml = yaml.dump({"env": "${DEPLOY_ENV}"})
 
-        mock_client = MagicMock()
-        mock_client.get_config = AsyncMock(return_value=app_yaml)
+        mock_service = MagicMock()
+        mock_service.get_config = AsyncMock(return_value=app_yaml)
 
-        with patch("nacos_toolkit.manager.NacosConfigManager._create_client", return_value=mock_client):
+        with patch.object(NacosConfigManager, "_create_config_service", return_value=mock_service):
             result = await get_nacos_config(
                 connection={
                     "server_addr": "localhost:8848", "namespace": "production",
@@ -128,16 +128,17 @@ class TestSetupConfigListener:
     def setup_method(self):
         NacosConfigManager._instance = None
 
-    def test_subscribes_to_configs(self):
-        mock_client = MagicMock()
-        mock_client.subscribe = MagicMock()
+    @pytest.mark.asyncio
+    async def test_subscribes_to_configs(self):
+        mock_service = MagicMock()
+        mock_service.add_listener = AsyncMock()
 
-        with patch("nacos_toolkit.manager.NacosConfigManager._create_client", return_value=mock_client):
-            setup_config_listener(
+        with patch.object(NacosConfigManager, "_create_config_service", return_value=mock_service):
+            await setup_config_listener(
                 nacos_config={"server_addr": "localhost:8848", "namespace": "dev", "username": "u", "password": "p"},
                 listen_requests=[
                     {"data_id": "app.yml", "group": "DEFAULT_GROUP"},
                 ],
             )
 
-        mock_client.subscribe.assert_called_once()
+        mock_service.add_listener.assert_awaited_once()

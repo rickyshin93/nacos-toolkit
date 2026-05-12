@@ -180,7 +180,7 @@ from nacos_toolkit import setup_config_listener
 def on_update(content: str):
     print(f"配置已更新: {content}")
 
-setup_config_listener(
+await setup_config_listener(
     nacos_config={
         "server_addr": "nacos-server:8848",
         "namespace": "production",
@@ -253,7 +253,7 @@ uv run ruff check .
 | 函数 / 类 | 说明 |
 |---|---|
 | `await get_nacos_config(...)` | 从 Nacos 拉取并处理配置 |
-| `setup_config_listener(...)` | 监听 Nacos 配置变更 |
+| `await setup_config_listener(...)` | 监听 Nacos 配置变更 |
 | `get_local_config(...)` | 读取本地配置文件 |
 | `NacosConfigUtils.process_configuration()` | 解析配置 + 渲染模板 |
 | `NacosConfigUtils.process_and_merge_custom_config()` | 处理并合并自定义配置 |
