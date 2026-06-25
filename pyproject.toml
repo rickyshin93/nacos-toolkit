@@ -1,6 +1,6 @@
 [project]
 name = "nacos-toolkit"
-version = "1.0.0"
+version = "1.0.1"
 description = "Nacos configuration parsing and management tool"
 readme = "README.md"
 license = "MIT"

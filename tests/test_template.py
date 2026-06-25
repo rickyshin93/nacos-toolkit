@@ -118,3 +118,78 @@ class TestRender:
         context = {"api": {"host": "http://api.com"}}
         result = TemplateEngine.render(config, context)
         assert result["url"] == "http://api.com"
+
+
+class TestRenderValue:
+    """整值占位符 `${x}` 引用容器时应保留类型，而非 str(dict) 成 repr 字符串。"""
+
+    def test_whole_placeholder_to_dict_preserves_dict(self):
+        result = TemplateEngine.render_value("${gcp.account}", {"gcp": {"account": {"project_id": "p"}}})
+        assert result == {"project_id": "p"}
+        assert isinstance(result, dict)
+
+    def test_whole_placeholder_to_list_preserves_list(self):
+        result = TemplateEngine.render_value("${kb_list}", {"kb_list": ["a", "b"]})
+        assert result == ["a", "b"]
+        assert isinstance(result, list)
+
+    def test_whole_placeholder_to_string_substitutes(self):
+        result = TemplateEngine.render_value("${host}", {"host": "localhost"})
+        assert result == "localhost"
+
+    def test_scalar_placeholder_keeps_text_substitution(self):
+        # 标量仍走文本替换语义（保持原行为，最小化对消费端的影响）
+        result = TemplateEngine.render_value("${port}", {"port": 8080})
+        assert result == "8080"
+
+    def test_embedded_placeholder_not_treated_as_whole(self):
+        # 非整值（含其它字面量）即便引用 dict 也只能字符串替换
+        result = TemplateEngine.render_value("x-${gcp}", {"gcp": {"a": 1}})
+        assert isinstance(result, str)
+
+    def test_undefined_whole_placeholder_keeps_original(self):
+        assert TemplateEngine.render_value("${missing}", {}) == "${missing}"
+
+
+class TestRenderContainerSubstitution:
+    """render() 全流程：整值占位符引用 dict/list 时落进配置树并保留类型。"""
+
+    def test_render_account_dict_via_whole_placeholder(self):
+        config = {"gcp": {"account": "${platform.gcp.account}"}}
+        context = {"platform": {"gcp": {"account": {"type": "service_account", "project_id": "bigdata"}}}}
+        result = TemplateEngine.render(config, context)
+        assert result["gcp"]["account"] == {"type": "service_account", "project_id": "bigdata"}
+
+    def test_render_list_via_whole_placeholder(self):
+        config = {"kb_list": "${platform.kb_list}"}
+        context = {"platform": {"kb_list": ["medical", "diagnosis"]}}
+        result = TemplateEngine.render(config, context)
+        assert result["kb_list"] == ["medical", "diagnosis"]
+
+    def test_render_inner_placeholders_of_substituted_dict(self):
+        # 被引用的 dict 内部还有占位符时，应继续渲染
+        config = {"open_api": "${platform.open_api}"}
+        context = {
+            "platform": {"open_api": {"base_url": "http://${DEPLOY_ENV}.example.com", "is_action": False}},
+            "DEPLOY_ENV": "test3",
+        }
+        result = TemplateEngine.render(config, context)
+        assert result["open_api"]["base_url"] == "http://test3.example.com"
+        assert result["open_api"]["is_action"] is False
+
+    def test_render_self_referential_container_terminates(self):
+        # ${a} 指向含 ${a} 的 dict —— 深度兜底应让渲染终止而非死循环/爆栈
+        config = {"x": "${a}"}
+        context = {"a": {"inner": "${a}"}}
+        result = TemplateEngine.render(config, context)
+        assert isinstance(result["x"], dict)  # 结构保留，未死循环
+
+    def test_render_does_not_mutate_context_container(self):
+        ctx_account = {"project_id": "p"}
+        context = {"platform": {"account": ctx_account}}
+        config = {"a": "${platform.account}", "b": "${platform.account}"}
+        result = TemplateEngine.render(config, context)
+        result["a"]["project_id"] = "changed"
+        # 改 result 不应回写 context（deepcopy 隔离），且两处互不影响
+        assert ctx_account["project_id"] == "p"
+        assert result["b"]["project_id"] == "p"
